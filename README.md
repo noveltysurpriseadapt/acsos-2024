@@ -9,3 +9,5 @@
 **4. MRPOMDP_Results:** The results of experiments conducted using Multi-Reward Partially Observable Markov Decision Process (MR-POMDP) with RDMSim have been provided for comparison purposes. The experiments were conducted using the scenarios presented in the paper.
 
 **5. Additional Resources:** As an additional resource, we provide an implementation of RDMSim in Python language (not part of submission).
+
+Cite the Code: [![DOI](https://zenodo.org/badge/348798629.svg)](https://zenodo.org/badge/latestdoi/348798629)
