@@ -12,6 +12,7 @@ from RDMSimExemplar.Additional_Resources.Additional_Resources.RDMSim_Python.Simp
 )
 from RDMSimExemplar.Additional_Resources.Additional_Resources.RDMSim_Python.SimpleSimulationExample.SAS.main import (
     POMDP,
+    PomdpType
 )
 from RDMSimExemplar.Additional_Resources.Additional_Resources.RDMSim_Python.SimpleSimulationExample.SAS.graphs import (
     POMDPGraphs,
@@ -102,7 +103,10 @@ def RunRDMSim():
 
     # Runs the simulation
     thresholds = [link_threshold, bandwidth_threshold, time_threshold]
-    pomdp = POMDP(thresholds=thresholds, unsupervised=False)
+
+    # initialise POMDP
+    pomdp = POMDP(thresholds=thresholds, pomdp_type=PomdpType.UNSUPERVISED)
+
     env.process(
         Simulator(
             env,
@@ -119,6 +123,7 @@ def RunRDMSim():
     print(f"Reward: [{pomdp.total_reward}]")  # total reward gained by pomdp
 
     # generate graphs
+    """
     graphs = POMDPGraphs(pomdp=pomdp)
     graphs.action_count_bar_chart()
     graphs.state_counts_bar_chart()
@@ -126,12 +131,11 @@ def RunRDMSim():
     graphs.plot_novelty()
     graphs.plot_novelty_surprise_correction()
     graphs.plot_transition_heatmap()
-
     graphs.plot_box_plots_bw()
     graphs.plot_box_plots_ac()
     graphs.plot_box_plots_ttw()
     graphs.plot_scenario_actions_chosen_bar_charts()
-
+    """
 
     fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, figsize=(12, 4), dpi=80)
     fig.tight_layout(pad=3.0)
@@ -175,7 +179,7 @@ def RunRDMSim():
     print(f"Actions chosen:\nMST: {pomdp.actions_chosen['MST']}]\nRT: {pomdp.actions_chosen['RT']}")
 
     # Log surprise
-    print(sum(pomdp.states_surprise_log))
+    print(f"Surprise:\n{pomdp.states_surprise_log}")
     # Makes the log entry in the log file
     log.make_log(
         config.scenario,

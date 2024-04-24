@@ -3,6 +3,7 @@ import functools
 import random
 import math
 import numpy
+from enum import Enum
 from RDMSimExemplar.Additional_Resources.Additional_Resources.RDMSim_Python.SimpleSimulationExample.rdm_sim import (
     Topology,
 )
@@ -18,9 +19,15 @@ from scipy.special import kl_div
 
 nfrs = ["MR", "MC", "MP"]
 
+
+class PomdpType(Enum):
+    EXPERT_DEFINED = "EXPERT_DEFINED",
+    UNSUPERVISED = "UNSUPERVISED"
+    RANDOM_UNIFORM = "RANDOM_UNIFORM"
+
 class POMDP:
-    def __init__(self, thresholds, unsupervised: bool = False):
-        self.unsupervised = unsupervised
+    def __init__(self, thresholds, pomdp_type: PomdpType):
+        self.pomdp_type = pomdp_type
         self.policies = (
             {}
         )  # {s: (action_fn, action_label)} maps a state (S1, S2, S3) to an action ("MST" or "RT")
@@ -62,7 +69,7 @@ class POMDP:
         self.state_to_label_mapping = None
         self.V: Dict[str, Optional[None, Callable]] = None
         self.state_counts: Dict[str, int] = None
-        self._setup(unsupervised=unsupervised)
+        self._setup(pomdp_type=pomdp_type)
 
     def perseus(self, observation_label: Optional[str] = None):
         unimproved_belief_states: List[str] = list(self.S.keys())
@@ -160,15 +167,7 @@ class POMDP:
                         expected_reward += surprise_reward
                     """
 
-                    """
-                    # Novelty reward
-                    novelty_strength = 10
-                    state_novelty = self.get_state_novelty(state)
-                    print(f"Novelty: {novelty_strength * state_novelty} ({s_prime})")
-                    expected_reward += (
-                        discount_factor * transition_p * (novelty_strength * state_novelty)
-                    )
-                    """
+
 
 
                 # extract optimal action
@@ -184,7 +183,7 @@ class POMDP:
         """
         if self.prev_state_belief and self.prev_action_label and self.prev_observation_label:
             self.observation_counts[(self.prev_state_belief, self.prev_action_label, self.prev_observation_label)] += 1
-            if self.unsupervised:
+            if self.pomdp_type == PomdpType.UNSUPERVISED:
                 # update observation probability of previous observation
                 self._observation_belief_update(
                     prev_s_label=self.prev_state_belief,
@@ -213,7 +212,7 @@ class POMDP:
                 (self.current_state_belief, self.prev_state_belief, action_label)
             ] += 1
 
-        if self.unsupervised:
+        if self.pomdp_type == PomdpType.UNSUPERVISED:
             # TODO: move to the top
             # update belief states
             self._belief_update(
@@ -228,10 +227,6 @@ class POMDP:
                 s_prime_label=self.current_state_belief,
                 action_label=action_label
             )
-
-            # TODO: update belief over observation probabilities
-            # self._bayesian_update_observation_probabilities(*args)
-
         self.time_steps += 1  # increment time step
 
         self.decision_count += 1
@@ -268,16 +263,16 @@ class POMDP:
         )
         return -numpy.log2(empirical_observation_freq)
 
-    def _setup(self, unsupervised: bool):
+    def _setup(self, pomdp_type: PomdpType):
         self._generate_states()
         self._generate_state_counts()
         self._generate_state_to_label_mapping()
         self._set_initial_belief_states()
         self._generate_actions()
         self._generate_rewards()
-        self._generate_transition_probabilities(unsupervised)
+        self._generate_transition_probabilities(pomdp_type)
         self._generate_belief_transitions()
-        self._generate_observation_probabilities(unsupervised)
+        self._generate_observation_probabilities(pomdp_type)
         self._generate_transition_counts()
         self._generate_observation_counts()
 
@@ -285,7 +280,6 @@ class POMDP:
             s: (0, None) for s in list(self.S.keys())
         }  # {"S1": (opt_reward, opt_act), ...}
 
-        self.test()
         self._perseus_generate_policies()
         assert self.state_to_label_mapping is not None
         assert self.policies is not None
@@ -305,11 +299,10 @@ class POMDP:
     def _generate_actions(self):
         self.A = {"MST": self._set_topology_mst, "RT": self._set_topology_rt}
 
-    def _generate_transition_probabilities(self, unsupervised: bool):
+    def _generate_transition_probabilities(self, pomdp_type: PomdpType):
         """
         T(s', s, a) = P(s' | s;, a)
         """
-        # TODO: get right transition probabilities
         T = {
             ("S1", "S1", "MST"): 0.5265,
             ("S2", "S1", "MST"): 0.0585,
@@ -442,7 +435,7 @@ class POMDP:
         }
 
         # override expert-provided transition probabilities
-        if unsupervised:
+        if pomdp_type == pomdp_type.UNSUPERVISED or pomdp_type == pomdp_type.RANDOM_UNIFORM:
             p = 1 / len(self.S.keys())
             T = {transition: p for transition in T.keys()}
 
@@ -483,70 +476,6 @@ class POMDP:
             ("S7", "RT"): 14.0,
             ("S8", "RT"): 7.0,
         }
-
-        # TODO: try old rewards on S0
-        """NEWEST rewards:
-        # MST rewards
-            ("S1", "MST"): 39.0,
-            ("S2", "MST"): 40.0,
-            ("S3", "MST"): 38.0,
-            ("S4", "MST"): 16.0,
-            ("S5", "MST"): 43.0,
-            ("S6", "MST"): 28.0,
-            ("S7", "MST"): 13.0,
-            ("S8", "MST"): 1.0,
-            # RT rewards
-            ("S1", "RT"): 43.0,
-            ("S2", "RT"): 49.0,
-            ("S3", "RT"): 28.0,
-            ("S4", "RT"): 26.0,
-            ("S5", "RT"): 28.0,
-            ("S6", "RT"): 16.0,
-            ("S7", "RT"): 23.0,
-            ("S8", "RT"): 11.0,
-                    
-                    """
-
-        # changed rewards
-        """
-        ("S1", "MST"): 40.0,
-            ("S2", "MST"): 41.0,
-            ("S3", "MST"): 38.0,
-            ("S4", "MST"): 16.0,
-            ("S5", "MST"): 43.0,
-            ("S6", "MST"): 28.0,
-            ("S7", "MST"): 13.0,
-            ("S8", "MST"): 1.0,
-            # RT rewards
-            ("S1", "RT"): 43.0,
-            ("S2", "RT"): 49.0,
-            ("S3", "RT"): 28.0,
-            ("S4", "RT"): 26.0,
-            ("S5", "RT"): 28.0,
-            ("S6", "RT"): 16.0,
-            ("S7", "RT"): 23.0,
-            ("S8", "RT"): 11.0,
-        """
-        # old rewards
-        """
-        ("S1", "MST"): 39.0,
-            ("S2", "MST"): 40.0,
-            ("S3", "MST"): 38.0,
-            ("S4", "MST"): 16.0,
-            ("S5", "MST"): 43.0,
-            ("S6", "MST"): 28.0,
-            ("S7", "MST"): 13.0,
-            ("S8", "MST"): 1.0,
-            # RT rewards
-            ("S1", "RT"): 47.0,
-            ("S2", "RT"): 39.5,
-            ("S3", "RT"): 28.0,
-            ("S4", "RT"): 26.0,
-            ("S5", "RT"): 28.0,
-            ("S6", "RT"): 16.0,
-            ("S7", "RT"): 23.0,
-            ("S8", "RT"): 11.0,
-        """
 
     def _transition_belief_update(
         self, s_label, s_prime_label, action_label
@@ -595,12 +524,6 @@ class POMDP:
     def _estimate_transition_p(self, s_prime_label: str, s_label, action_label):
         """
         Estimate the transition probability T(s_prime_label | s_label, action_label) = T(s' | s, a)
-        using Eq 10 (pcbi.1009070.s001-2.pdf)
-        TODO: cite
-        :param s_prime_label:
-        :param s_label:
-        :param action_label:
-        :return:
         """
         transition_count = self.transition_counts[
             (s_prime_label, s_label, action_label)
@@ -736,13 +659,10 @@ class POMDP:
             )
         return probability_of_change / (1 - probability_of_change)
 
-    def _generate_observation_probabilities(self, unsupervised: bool):
+    def _generate_observation_probabilities(self, pomdp_type: PomdpType):
         """
         Probability of observing observation z given a resulting state s' from action a
         O(s', a, z) = P(z | s', a)
-
-        :param unsupervised: bool - `unsupervised` flag overrides expert-provided observation probabilities using a
-        random uniform distribution
         """
         self.O = {
             ("S1", "MST", "O1"): 0.03984,
@@ -1179,7 +1099,7 @@ class POMDP:
             ("S8", "RT", "O27"): 0.010368,
         }
 
-        if unsupervised:
+        if pomdp_type == PomdpType.UNSUPERVISED or pomdp_type == PomdpType.RANDOM_UNIFORM:
             N = len(self.O.keys())
             self.O = {o: 1 / 27 for o in self.O.keys()}
 
@@ -1362,11 +1282,6 @@ class POMDP:
             return 1
 
     def _get_mp_satisfiability(self, ttw_reading: float, alpha: float = 1.0):
-        """
-        Calculate the MP satisfiability.
-        :param ttw_reading:
-        :return:
-        """
         max_time_to_write = np.number_of_links * config.mst_writing_time[1] * alpha
         # f = lower bound time to write
         f = (config.mst_writing_time[0] / 100) * max_time_to_write
@@ -1395,18 +1310,6 @@ class POMDP:
             return 0
         elif bw_reading >= y:
             return 1
-
-    def test(self):
-        print(f"Bellman rewards")
-        for s in self.S.keys():
-            r_mst, r_rt = 0, 0
-            for s_prime in self.S.keys():
-                r_mst += self.T[(s_prime, s, "MST")] * self.R[(s, "MST")]
-                r_rt += self.T[(s_prime, s, "RT")] * self.R[(s, "RT")]
-            action_chosen = "MST" if r_mst > r_rt else "RT"
-            print(
-                f"{s}: MST reward: {r_mst}, RT reward: {r_rt} Action chosen: {action_chosen}"
-            )
 
     def _get_state_number(self, state_label: str) -> int:
         """

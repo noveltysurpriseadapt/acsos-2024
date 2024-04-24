@@ -1,6 +1,6 @@
 {
 	"random_seed": null,
-	"scenario": 6,
+	"scenario": 0,
 	"time_steps": 100,
 	"mirror_number": 25,
 	"mst_active_links": [8, 58],
